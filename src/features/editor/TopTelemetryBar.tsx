@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Check,
+  ChevronDown,
   Command,
   Cpu,
   Download,
   FastForward,
   History,
-  Palette,
   Pause,
   Play,
   RotateCcw,
+  Sparkles,
   StepBack,
   StepForward,
   Wrench,
@@ -18,13 +20,16 @@ import { useSimulatorStore } from '../../store/useSimulatorStore';
 
 interface TopTelemetryBarProps {
   onOpenCommandPalette: () => void;
-  onOpenThemeSelector: () => void;
+  onOpenThemeSelector?: () => void;
+  onGoHome?: () => void;
 }
 
 export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
   onOpenCommandPalette,
   onOpenThemeSelector,
+  onGoHome,
 }) => {
+  void onOpenThemeSelector;
   const {
     architecture,
     setArchitecture,
@@ -45,11 +50,39 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
     timing,
     clockMHz,
     setClockMHz,
-    activeTheme,
     revision,
   } = useSimulatorStore();
 
   void revision;
+  const [presetOpen, setPresetOpen] = useState(false);
+  const presetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!presetOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (presetRef.current && !presetRef.current.contains(e.target as Node)) {
+        setPresetOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPresetOpen(false);
+    };
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [presetOpen]);
+
+  const handleGoHome = () => {
+    if (onGoHome) {
+      onGoHome();
+    } else {
+      window.location.hash = '#/';
+    }
+  };
+
   const is8085 = architecture === '8085';
   const snapshots = is8085 ? cpu.history.getAll() : cpu8086.getSnapshots();
   const cursor = is8085 ? cpu.history.getCursor() : cpu8086.getCursor();
@@ -59,6 +92,9 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
     : cpu8086.halted && !cpu8086.canStepForward();
 
   const archPresets = SYLLABUS_PRESETS.filter((p) => p.arch === architecture);
+  const beginnerPresets = archPresets.filter((p) => p.category.startsWith('Beginner'));
+  const syllabusPresets = archPresets.filter((p) => !p.category.startsWith('Beginner'));
+  const activePreset = archPresets.find((p) => p.id === activePresetId) ?? archPresets[0];
 
   const exportIntelHex = () => {
     const segs = is8085
@@ -115,22 +151,26 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
 
   return (
     <header
-      className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2.5 border-b px-3 py-2.5 backdrop-blur-md sm:px-4"
+      className="relative z-40 flex w-full min-w-0 flex-wrap items-center justify-between gap-2.5 border-b px-3 py-2.5 backdrop-blur-xl sm:px-4"
       style={{
         backgroundColor: 'var(--ss-bg-panel)',
         borderColor: 'var(--ss-border-subtle)',
       }}
     >
-      {/* Brand + Smooth 8-Bit / 16-Bit Architecture Selector + Preset Picker */}
+      {/* Clickable Brand + Smooth 8-Bit / 16-Bit Architecture Selector + Custom Apple Preset Popover */}
       <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
-        <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={handleGoHome}
+          title="Return to Landing Page"
+          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-1.5 py-1 text-left transition hover:bg-black/[0.04] active:scale-[0.99]"
+        >
           <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-300"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-all duration-300"
             style={{
               backgroundColor: 'var(--ss-accent-soft)',
               borderColor: 'var(--ss-accent)',
               color: 'var(--ss-accent)',
-              boxShadow: '0 0 15px var(--ss-accent-glow)',
             }}
           >
             <Cpu className="h-4 w-4" />
@@ -149,33 +189,33 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
               {is8085 ? '8-Bit Microarchitecture Lab' : '16-Bit x86 Microarchitecture Lab'}
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Smooth 8-bit / 16-bit Segmented Toggle */}
         <div
           role="group"
           aria-label="Processor Architecture Selector"
-          className="relative grid grid-cols-2 items-center rounded-lg border p-0.5"
+          className="relative grid grid-cols-2 items-center rounded-full border p-0.5"
           style={{
-            backgroundColor: 'var(--ss-bg-input)',
-            borderColor: 'var(--ss-border-strong)',
+            backgroundColor: 'var(--ss-bg-panel-alt)',
+            borderColor: 'var(--ss-border-subtle)',
           }}
         >
           <span
             aria-hidden="true"
-            className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-md transition-transform duration-300 ease-out ${
+            className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full transition-transform duration-300 ease-out ${
               is8085 ? 'translate-x-0' : 'translate-x-full'
             }`}
             style={{
-              backgroundColor: 'var(--ss-accent-soft)',
-              boxShadow: 'inset 0 0 0 1px var(--ss-accent)',
+              backgroundColor: '#ffffff',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}
           />
           <button
             type="button"
             onClick={() => setArchitecture('8085')}
-            className="relative z-10 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors duration-200"
-            style={{ color: is8085 ? 'var(--ss-accent-text)' : 'var(--ss-text-muted)' }}
+            className="relative z-10 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors duration-200"
+            style={{ color: is8085 ? '#0071e3' : 'var(--ss-text-muted)' }}
             title="8-bit — Intel 8085"
           >
             8-bit · 8085
@@ -183,35 +223,129 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
           <button
             type="button"
             onClick={() => setArchitecture('8086')}
-            className="relative z-10 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors duration-200"
-            style={{ color: !is8085 ? 'var(--ss-accent-text)' : 'var(--ss-text-muted)' }}
+            className="relative z-10 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors duration-200"
+            style={{ color: !is8085 ? '#0071e3' : 'var(--ss-text-muted)' }}
             title="16-bit — Intel 8086"
           >
             16-bit · 8086
           </button>
         </div>
 
-        <select
-          value={activePresetId}
-          onChange={(e) => loadPreset(e.target.value)}
-          className="min-w-0 flex-1 truncate rounded-lg border px-2 py-1.5 text-xs font-medium outline-none transition sm:max-w-[220px] sm:flex-initial"
-          style={{
-            backgroundColor: 'var(--ss-bg-input)',
-            borderColor: 'var(--ss-border-strong)',
-            color: 'var(--ss-text-primary)',
-          }}
-          title={`Load ${architecture} Preset`}
-        >
-          {archPresets.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.category}: {p.title}
-            </option>
-          ))}
-        </select>
+        {/* Custom Apple-Style Preset Popover */}
+        <div ref={presetRef} className="relative min-w-0 flex-1 sm:flex-initial">
+          <button
+            type="button"
+            onClick={() => setPresetOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-2 rounded-full border border-black/[0.08] bg-[#f5f5f7] px-3 py-1.5 text-left text-xs font-semibold text-[#1d1d1f] transition hover:bg-[#ececf0] sm:w-[235px]"
+            title={`Load ${architecture} Preset`}
+          >
+            <span className="truncate">
+              {activePreset ? `${activePreset.category}: ${activePreset.title}` : 'Select Preset'}
+            </span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 shrink-0 text-[#6e6e73] transition-transform duration-200 ${
+                presetOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {presetOpen && (
+            <div className="absolute left-0 top-full z-50 mt-2 w-[min(92vw,360px)] overflow-hidden rounded-2xl border border-black/[0.08] bg-white/95 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+              <div className="max-h-[380px] space-y-3 overflow-y-auto pr-1">
+                {beginnerPresets.length > 0 && (
+                  <div>
+                    <div className="mb-1 flex items-center gap-1.5 px-2.5 pt-1 text-[10px] font-bold tracking-wider text-[#0071e3] uppercase">
+                      <Sparkles className="h-3 w-3" />
+                      <span>Beginner Basics ({architecture})</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      {beginnerPresets.map((p) => {
+                        const isSelected = p.id === activePresetId;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              loadPreset(p.id);
+                              setPresetOpen(false);
+                            }}
+                            className={`flex w-full items-start justify-between gap-2 rounded-xl px-2.5 py-2 text-left transition ${
+                              isSelected ? 'bg-[#0071e3]/10' : 'hover:bg-[#f5f5f7]'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="rounded bg-[#0071e3]/15 px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#0071e3]">
+                                  {p.category}
+                                </span>
+                                <span className="truncate text-xs font-semibold text-[#1d1d1f]">
+                                  {p.title}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6e6e73]">
+                                {p.description}
+                              </p>
+                            </div>
+                            {isSelected && (
+                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0071e3]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {syllabusPresets.length > 0 && (
+                  <div className="border-t border-black/[0.06] pt-2">
+                    <div className="mb-1 px-2.5 text-[10px] font-bold tracking-wider text-[#6e6e73] uppercase">
+                      Syllabus Programs ({architecture})
+                    </div>
+                    <div className="space-y-0.5">
+                      {syllabusPresets.map((p) => {
+                        const isSelected = p.id === activePresetId;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              loadPreset(p.id);
+                              setPresetOpen(false);
+                            }}
+                            className={`flex w-full items-start justify-between gap-2 rounded-xl px-2.5 py-2 text-left transition ${
+                              isSelected ? 'bg-[#0071e3]/10' : 'hover:bg-[#f5f5f7]'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="rounded bg-[#1d1d1f]/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#1d1d1f]">
+                                  {p.category}
+                                </span>
+                                <span className="truncate text-xs font-semibold text-[#1d1d1f]">
+                                  {p.title}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6e6e73]">
+                                {p.description}
+                              </p>
+                            </div>
+                            {isSelected && (
+                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0071e3]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={onOpenCommandPalette}
-          className="hidden items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition hover:opacity-90 md:flex"
+          className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90 md:flex"
           style={{
             backgroundColor: 'var(--ss-bg-panel-alt)',
             borderColor: 'var(--ss-border-subtle)',
@@ -222,9 +356,9 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
           <Command className="h-3.5 w-3.5" style={{ color: 'var(--ss-accent)' }} />
           <span>Commands</span>
           <kbd
-            className="rounded px-1.5 py-0.5 text-[10px]"
+            className="rounded-full px-1.5 py-0.5 text-[10px]"
             style={{
-              backgroundColor: 'var(--ss-bg-elevated)',
+              backgroundColor: '#ffffff',
               color: 'var(--ss-text-secondary)',
             }}
           >
@@ -235,7 +369,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
 
       {/* Execution Controls */}
       <div
-        className="flex w-full min-w-0 flex-wrap items-center justify-between gap-1 rounded-xl border p-1 sm:w-auto sm:justify-start"
+        className="flex w-full min-w-0 flex-wrap items-center justify-between gap-1 rounded-full border p-1 sm:w-auto sm:justify-start"
         style={{
           backgroundColor: 'var(--ss-bg-panel-alt)',
           borderColor: 'var(--ss-border-subtle)',
@@ -243,7 +377,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
       >
         <button
           onClick={() => assembleCode()}
-          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-90 sm:px-3"
+          className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition hover:opacity-90"
           style={{
             backgroundColor: 'var(--ss-accent-soft)',
             color: 'var(--ss-accent-text)',
@@ -259,7 +393,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
         <button
           onClick={stepBackward}
           disabled={!canStepBack}
-          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
           style={{ color: 'var(--ss-warning)' }}
           title="Time-Travel: Step Backward"
         >
@@ -270,7 +404,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
         <button
           onClick={stepForward}
           disabled={isHaltedAndAtTip}
-          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
           style={{ color: 'var(--ss-success)' }}
           title="Execute Single Instruction"
         >
@@ -281,7 +415,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
         {!isRunning ? (
           <button
             onClick={runProgram}
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-90 sm:px-3"
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition hover:opacity-90"
             style={{
               backgroundColor: 'var(--ss-success-soft)',
               color: 'var(--ss-success)',
@@ -294,7 +428,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
         ) : (
           <button
             onClick={pauseProgram}
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-90 sm:px-3"
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition hover:opacity-90"
             style={{
               backgroundColor: 'var(--ss-warning-soft)',
               color: 'var(--ss-warning)',
@@ -308,7 +442,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
 
         <button
           onClick={resetCpu}
-          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition hover:opacity-80"
+          className="flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium transition hover:opacity-80"
           style={{ color: 'var(--ss-text-secondary)' }}
           title="Reset Registers & Reload Program"
         >
@@ -316,17 +450,20 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
         </button>
       </div>
 
-      {/* Time-Travel Scrubber + Telemetry Clock + Exports + Far-Right Theme Selection */}
+      {/* Time-Travel Scrubber + Telemetry Clock + Exports */}
       <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 lg:w-auto lg:justify-end">
         <div
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 sm:flex-initial"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-full border px-3 py-1.5 sm:flex-initial"
           style={{
             backgroundColor: 'var(--ss-bg-panel-alt)',
             borderColor: 'var(--ss-border-subtle)',
           }}
         >
           <History className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ss-warning)' }} />
-          <span className="hidden text-[11px] font-medium sm:inline" style={{ color: 'var(--ss-text-muted)' }}>
+          <span
+            className="hidden text-[11px] font-medium sm:inline"
+            style={{ color: 'var(--ss-text-muted)' }}
+          >
             Timeline
           </span>
           <input
@@ -346,7 +483,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
         </div>
 
         <div
-          className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] sm:text-xs"
+          className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] sm:text-xs"
           style={{
             backgroundColor: 'var(--ss-bg-panel-alt)',
             borderColor: 'var(--ss-border-subtle)',
@@ -359,11 +496,11 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
             className="bg-transparent font-mono text-[11px] outline-none sm:text-xs"
             style={{ color: 'var(--ss-text-primary)' }}
           >
-            <option value={1.0} style={{ backgroundColor: 'var(--ss-bg-elevated)' }}>1.0 MHz</option>
-            <option value={2.0} style={{ backgroundColor: 'var(--ss-bg-elevated)' }}>2.0 MHz</option>
-            <option value={3.072} style={{ backgroundColor: 'var(--ss-bg-elevated)' }}>3.072 MHz</option>
-            <option value={5.0} style={{ backgroundColor: 'var(--ss-bg-elevated)' }}>5.0 MHz</option>
-            <option value={6.0} style={{ backgroundColor: 'var(--ss-bg-elevated)' }}>6.0 MHz</option>
+            <option value={1.0}>1.0 MHz</option>
+            <option value={2.0}>2.0 MHz</option>
+            <option value={3.072}>3.072 MHz</option>
+            <option value={5.0}>5.0 MHz</option>
+            <option value={6.0}>6.0 MHz</option>
           </select>
           <span style={{ color: 'var(--ss-border-strong)' }}>|</span>
           <span className="font-mono" style={{ color: 'var(--ss-accent-text)' }}>
@@ -377,7 +514,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
         <div className="flex shrink-0 items-center gap-1">
           <button
             onClick={exportListing}
-            className="flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition hover:opacity-90"
+            className="flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition hover:opacity-90"
             style={{
               backgroundColor: 'var(--ss-bg-input)',
               borderColor: 'var(--ss-border-subtle)',
@@ -390,7 +527,7 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
           </button>
           <button
             onClick={exportIntelHex}
-            className="flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition hover:opacity-90"
+            className="flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition hover:opacity-90"
             style={{
               backgroundColor: 'var(--ss-bg-input)',
               borderColor: 'var(--ss-border-subtle)',
@@ -400,25 +537,6 @@ export const TopTelemetryBar: React.FC<TopTelemetryBarProps> = ({
           >
             <Download className="h-3 w-3" />
             .HEX
-          </button>
-
-          {/* Theme Selector Section on Far Right */}
-          <button
-            onClick={onOpenThemeSelector}
-            className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition hover:opacity-90"
-            style={{
-              backgroundColor: 'var(--ss-bg-panel-alt)',
-              borderColor: 'var(--ss-border-strong)',
-              color: 'var(--ss-text-primary)',
-            }}
-            title="Select or Generate Theme"
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: activeTheme.tokens.accent }}
-            />
-            <Palette className="h-3.5 w-3.5" style={{ color: 'var(--ss-accent)' }} />
-            <span className="hidden xl:inline">{activeTheme.name}</span>
           </button>
         </div>
       </div>

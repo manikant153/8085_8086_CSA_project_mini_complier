@@ -1,51 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
-  --ss-bg-app: #05080f;
-  --ss-bg-panel: rgba(2, 6, 23, 0.88);
-  --ss-bg-panel-alt: rgba(15, 23, 42, 0.72);
-  --ss-bg-elevated: #0f172a;
-  --ss-bg-input: #0f172a;
-  --ss-bg-svg: #070b14;
-  --ss-border-subtle: rgba(30, 41, 59, 0.9);
-  --ss-border-strong: #334155;
-  --ss-text-primary: #f1f5f9;
-  --ss-text-secondary: #cbd5e1;
-  --ss-text-muted: #64748b;
-  --ss-accent: #22d3ee;
-  --ss-accent-soft: rgba(34, 211, 238, 0.16);
-  --ss-accent-text: #a5f3fc;
-  --ss-accent-glow: rgba(34, 211, 238, 0.25);
-  --ss-secondary: #c084fc;
-  --ss-secondary-soft: rgba(192, 132, 252, 0.16);
-  --ss-success: #34d399;
-  --ss-success-soft: rgba(52, 211, 153, 0.16);
-  --ss-warning: #fbbf24;
-  --ss-warning-soft: rgba(251, 191, 36, 0.18);
-  --ss-danger: #fb7185;
-  --ss-danger-soft: rgba(251, 113, 133, 0.18);
-  --ss-syn-opcode: #22d3ee;
-  --ss-syn-directive: #c084fc;
-  --ss-syn-register: #fcd34d;
-  --ss-syn-literal: #34d399;
-  --ss-syn-label: #f472b6;
-  --ss-syn-comment: #64748b;
-  --ss-svg-block-bg: rgba(15, 23, 42, 0.92);
-  --ss-svg-block-stroke: #1e293b;
-  --ss-svg-bus-bg: rgba(30, 41, 59, 0.65);
-  --ss-svg-bus-stroke: #334155;
-  --ss-svg-addr-bus: #fbbf24;
-  --ss-svg-data-bus: #22d3ee;
+  --ss-bg-app: #f5f5f7;
+  --ss-bg-panel: #ffffff;
+  --ss-bg-panel-alt: #f5f5f7;
+  --ss-bg-elevated: #ececf0;
+  --ss-bg-input: #ffffff;
+  --ss-bg-svg: #f9f9fb;
+  --ss-border-subtle: #e5e5ea;
+  --ss-border-strong: #d1d1d6;
+  --ss-text-primary: #1d1d1f;
+  --ss-text-secondary: #3a3a3c;
+  --ss-text-muted: #6e6e73;
+  --ss-accent: #0071e3;
+  --ss-accent-soft: rgba(0, 113, 227, 0.1);
+  --ss-accent-text: #005bb5;
+  --ss-accent-glow: rgba(0, 113, 227, 0.16);
+  --ss-secondary: #e05a33;
+  --ss-secondary-soft: rgba(224, 90, 51, 0.1);
+  --ss-success: #059669;
+  --ss-success-soft: rgba(5, 150, 105, 0.1);
+  --ss-warning: #d97706;
+  --ss-warning-soft: rgba(217, 119, 6, 0.12);
+  --ss-danger: #dc2626;
+  --ss-danger-soft: rgba(220, 38, 38, 0.1);
 }
 
+html,
 body {
-  background-color: var(--ss-bg-app);
-  color: var(--ss-text-primary);
-  transition: background-color 180ms ease, color 180ms ease;
+  background-color: #f5f5f7;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--ss-border-strong) transparent;
+.studio-apple-shell [class*="rounded-xl"],
+.studio-apple-shell [class*="rounded-2xl"] {
+  border-radius: 18px;
+}
+
+/* Hide Theme Selector / Color Generator button in Studio Top Bar */
+.studio-apple-shell button[title*="Theme" i],
+.studio-apple-shell button[aria-label*="Theme" i] {
+  display: none !important;
 }

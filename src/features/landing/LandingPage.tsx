@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ArrowDown,
   ArrowRight,
   Bot,
-  CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Code2,
   Cpu,
   Layers,
+  Pause,
+  Play,
+  Plus,
   Quote,
-  Sparkles,
   Star,
-  Terminal,
-  Users,
   Zap,
 } from 'lucide-react';
 import { TEAM_MEMBERS, TESTIMONIALS, type ArchitectureId } from '../../data/landingData';
@@ -23,57 +22,17 @@ interface LandingPageProps {
   onOpenMember: (memberId: string) => void;
 }
 
-const HERO_SNIPPETS: Record<
-  ArchitectureId,
-  {
-    badge: string;
-    code: string;
-    regs: { k: string; v: string }[];
-    bus: string;
-    cycles: string;
-  }
-> = {
-  '8085': {
-    badge: '8-BIT · 3.072 MHz',
-    code: `        ORG 2000H
-        MVI A, 5AH    ; 0101 1010b
-        MVI B, 00H    ; 1-bit counter
-        MVI C, 08H    ; 8 bits
-LOOP:   RAR           ; Bit 0 -> CY
-        JNC NEXT
-        INR B
-NEXT:   DCR C
-        JNZ LOOP
-        HLT`,
-    regs: [
-      { k: 'ACC (A)', v: '04H' },
-      { k: 'REG B', v: '04H' },
-      { k: 'FLAGS', v: 'Z=1 CY=0' },
-    ],
-    bus: 'Bus: OF (4T) → MR (3T) → ALU',
-    cycles: '198 T-States',
-  },
-  '8086': {
-    badge: '16-BIT · BIU/EU',
-    code: `        ORG 0100H
-        MOV BX, 1200H ; Array base
-        MOV CX, 0004H ; 4 words
-        MOV AX, 0000H ; Sum = 0
-SUM_LP: ADD AX, [BX]  ; Add word
-        INC BX
-        INC BX
-        LOOP SUM_LP   ; CX--
-        MOV [1300H], AX
-        HLT`,
-    regs: [
-      { k: 'AX', v: '00F5H' },
-      { k: 'BX', v: '1208H' },
-      { k: 'CX', v: '0000H' },
-    ],
-    bus: 'BIU 6B Queue → EU ALU',
-    cycles: '16-Bit Segmented',
-  },
-};
+interface CarouselSlide {
+  id: string;
+  tag: string;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  bgClass: string;
+  onAction: 'studio' | '8085' | '8086';
+}
+
+const SLIDE_DURATION_MS = 9000;
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onLaunchStudio,
@@ -81,7 +40,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenMember,
 }) => {
   const [activePage, setActivePage] = useState<0 | 1 | 2>(0);
-  const [previewArch, setPreviewArch] = useState<ArchitectureId>('8085');
+  const [slideIdx, setSlideIdx] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const elapsedRef = useRef(0);
 
   const pageRefs = [
     useRef<HTMLElement | null>(null),
@@ -89,10 +52,77 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     useRef<HTMLElement | null>(null),
   ];
 
+  const slides: CarouselSlide[] = [
+    {
+      id: 'compiler',
+      tag: '8085 MINI COMPILER',
+      title: 'Two-Pass Assembly to Machine Bytes',
+      subtitle:
+        'Compile 8085 mnemonics into exact 1/2/3-byte opcodes with symbol resolution and .LST/.HEX export.',
+      ctaLabel: 'Launch Compiler',
+      bgClass: 'bg-gradient-to-br from-[#1b2232] via-[#232c3f] to-[#151a26] text-[#f1f5f9]',
+      onAction: 'studio',
+    },
+    {
+      id: 'node-flow',
+      tag: 'CONNECTED ARCHITECTURE',
+      title: 'Editor → Assembler → CPU & Bus → 64KB RAM',
+      subtitle:
+        'Watch every compiled instruction flow across the internal data bus, ALU, and PSW flags in real time.',
+      ctaLabel: 'Open Workbench',
+      bgClass: 'bg-[#1c1f26] text-[#f1f5f9]',
+      onAction: 'studio',
+    },
+    {
+      id: 'arch-8085',
+      tag: 'INTEL 8085 · 1976',
+      title: '8-Bit Classic. Cycle-Accurate.',
+      subtitle:
+        'Explore 6,500-transistor history, multiplexed AD0–AD7 bus design, and live T-state timing.',
+      ctaLabel: 'Explore 8085',
+      bgClass: 'bg-gradient-to-br from-[#162944] via-[#1d3961] to-[#122036] text-[#f1f5f9]',
+      onAction: '8085',
+    },
+    {
+      id: 'arch-8086',
+      tag: 'INTEL 8086 · 1978',
+      title: '16-Bit x86 Origin. Built-In.',
+      subtitle:
+        'Switch seamlessly to 16-bit AX–DX registers, BIU/EU prefetch pipeline, and segmented 1MB memory.',
+      ctaLabel: 'Explore 8086',
+      bgClass: 'bg-gradient-to-br from-[#23262f] via-[#2b2f3a] to-[#1a1d24] text-[#f1f5f9]',
+      onAction: '8086',
+    },
+  ];
+
   const scrollToPage = (index: 0 | 1 | 2) => {
     setActivePage(index);
     pageRefs[index].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  useEffect(() => {
+    if (isPaused) return;
+    let rafId = 0;
+    let lastTime = performance.now();
+
+    const tick = (now: number) => {
+      const dt = now - lastTime;
+      lastTime = now;
+      elapsedRef.current += dt;
+
+      if (elapsedRef.current >= SLIDE_DURATION_MS) {
+        elapsedRef.current = 0;
+        setProgress(0);
+        setSlideIdx((s) => (s + 1) % slides.length);
+      } else {
+        setProgress((elapsedRef.current / SLIDE_DURATION_MS) * 100);
+      }
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isPaused, slides.length]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -106,7 +136,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           }
         }
       },
-      { threshold: 0.45 }
+      { threshold: 0.4 }
     );
 
     pageRefs.forEach((ref) => {
@@ -116,102 +146,61 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  const heroData = HERO_SNIPPETS[previewArch];
+  const selectSlide = (idx: number) => {
+    elapsedRef.current = 0;
+    setSlideIdx((idx + slides.length) % slides.length);
+    setProgress(0);
+  };
+
+  const handleSlideAction = (action: 'studio' | '8085' | '8086') => {
+    if (action === 'studio') onLaunchStudio();
+    else onOpenArchHistory(action);
+  };
 
   return (
-    <div
-      className="relative min-h-screen w-full overflow-x-hidden scroll-smooth"
-      style={{
-        backgroundColor: 'var(--ss-bg, #070b14)',
-        color: 'var(--ss-text, #e2e8f0)',
-        backgroundImage:
-          'linear-gradient(to right, rgba(56, 189, 248, 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(56, 189, 248, 0.04) 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
-      }}
-    >
-      {/* Ambient Silicon Glows */}
-      <div
-        className="pointer-events-none fixed -top-32 left-1/4 h-96 w-96 rounded-full blur-[120px]"
-        style={{ backgroundColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 14%, transparent)' }}
-      />
-      <div
-        className="pointer-events-none fixed bottom-0 right-1/5 h-80 w-80 rounded-full blur-[120px]"
-        style={{ backgroundColor: 'rgba(99, 102, 241, 0.10)' }}
-      />
-
-      {/* Sticky Glassmorphic Navigation */}
-      <header
-        className="fixed top-0 left-0 right-0 z-40 border-b backdrop-blur-xl"
-        style={{
-          backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0d1424) 80%, transparent)',
-          borderColor: 'var(--ss-border, #1e293b)',
-        }}
-      >
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#eef1f5] text-[#1f2328] scroll-smooth">
+      {/* Soft Frosted Glass Header */}
+      <header className="fixed top-0 left-0 right-0 z-40 border-b border-black/[0.07] bg-[#f7f8fa]/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <button
             type="button"
             onClick={() => scrollToPage(0)}
             className="flex items-center gap-2.5 text-left"
           >
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm"
-              style={{
-                borderColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 55%, transparent)',
-                backgroundColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 15%, transparent)',
-                color: 'var(--ss-accent, #38bdf8)',
-              }}
-            >
-              <Cpu className="h-5 w-5" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#232730] text-white">
+              <Cpu className="h-4 w-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 text-sm font-extrabold tracking-wider uppercase">
-                <span>Silicon Studio</span>
-                <span className="hidden rounded px-1.5 py-0.5 font-mono text-[10px] font-bold sm:inline-block" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
-                  v2.0
-                </span>
-              </div>
-              <div className="text-[11px] opacity-70">8085 · 8086 Interactive Lab</div>
-            </div>
+            <span className="text-sm font-bold tracking-tight">8085 Mini Compiler</span>
           </button>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-6 text-xs font-medium text-[#5c6370] md:flex">
             {[
-              { label: '01 · Overview', idx: 0 as const },
-              { label: '02 · How It Works', idx: 1 as const },
-              { label: '03 · Reviews & Team', idx: 2 as const },
-            ].map((item) => {
-              const isActive = activePage === item.idx;
-              return (
-                <button
-                  key={item.idx}
-                  type="button"
-                  onClick={() => scrollToPage(item.idx)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-                  style={{
-                    backgroundColor: isActive
-                      ? 'color-mix(in srgb, var(--ss-accent, #38bdf8) 16%, transparent)'
-                      : 'transparent',
-                    color: isActive ? 'var(--ss-accent, #38bdf8)' : 'var(--ss-muted, #94a3b8)',
-                  }}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-
-            <span className="mx-1.5 h-4 w-px opacity-20" style={{ backgroundColor: 'var(--ss-text, #e2e8f0)' }} />
-
+              { label: 'Overview', idx: 0 as const },
+              { label: 'Architecture', idx: 1 as const },
+              { label: 'Team & Reviews', idx: 2 as const },
+            ].map((item) => (
+              <button
+                key={item.idx}
+                type="button"
+                onClick={() => scrollToPage(item.idx)}
+                className={`transition-colors hover:text-[#1f2328] ${
+                  activePage === item.idx ? 'font-semibold text-[#1f2328]' : ''
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={() => onOpenArchHistory('8085')}
-              className="rounded-lg px-2.5 py-1.5 text-xs font-medium opacity-80 transition-colors hover:opacity-100"
+              className="transition-colors hover:text-[#1f2328]"
             >
               8085 History
             </button>
             <button
               type="button"
               onClick={() => onOpenArchHistory('8086')}
-              className="rounded-lg px-2.5 py-1.5 text-xs font-medium opacity-80 transition-colors hover:opacity-100"
+              className="transition-colors hover:text-[#1f2328]"
             >
               8086 History
             </button>
@@ -220,596 +209,419 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <button
             type="button"
             onClick={onLaunchStudio}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold shadow-md transition-transform hover:scale-[1.03] active:scale-[0.98]"
-            style={{
-              backgroundColor: 'var(--ss-accent, #38bdf8)',
-              color: '#06101c',
-            }}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#0071e3] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#0077ed] active:scale-[0.98]"
           >
             <span>Launch Studio</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
-
-        {/* Subtle 3-Page Scroll Progress Bar */}
-        <div className="h-[2px] w-full" style={{ backgroundColor: 'rgba(148, 163, 184, 0.1)' }}>
-          <div
-            className="h-full transition-all duration-300"
-            style={{
-              width: `${((activePage + 1) / 3) * 100}%`,
-              backgroundColor: 'var(--ss-accent, #38bdf8)',
-            }}
-          />
-        </div>
       </header>
 
-      {/* Right-Side 3-Page Scroll Indicator */}
-      <div className="fixed right-4 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-3 lg:flex">
-        {([0, 1, 2] as const).map((idx) => (
-          <button
-            key={idx}
-            type="button"
-            aria-label={`Jump to section ${idx + 1}`}
-            onClick={() => scrollToPage(idx)}
-            className="group flex items-center gap-2"
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full border transition-all"
-              style={{
-                borderColor: 'var(--ss-accent, #38bdf8)',
-                backgroundColor:
-                  activePage === idx ? 'var(--ss-accent, #38bdf8)' : 'transparent',
-                transform: activePage === idx ? 'scale(1.3)' : 'scale(1)',
-              }}
-            />
-          </button>
-        ))}
-      </div>
-
-      {/* ==================== PAGE 1: WHAT THE PROJECT IS ==================== */}
+      {/* ==================== PAGE 1: EDITORIAL HERO + FLUID SLIDING CAROUSEL ==================== */}
       <section
         ref={pageRefs[0]}
         data-page-index={0}
-        className="relative flex min-h-screen items-center px-4 pt-24 pb-14 sm:px-6"
+        className="flex min-h-screen flex-col justify-center bg-[#f7f8fa] px-4 pt-20 pb-14 sm:px-6"
       >
-        <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 lg:grid-cols-12">
-          <div className="space-y-6 lg:col-span-7">
-            <button
-              type="button"
-              onClick={() => scrollToPage(1)}
-              className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors hover:border-[var(--ss-accent,#38bdf8)]"
-              style={{
-                borderColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 40%, transparent)',
-                backgroundColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 12%, transparent)',
-                color: 'var(--ss-accent, #38bdf8)',
-              }}
-            >
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Dual-Architecture Microprocessor Lab · 8085 & 8086</span>
-            </button>
-
-            <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl lg:leading-[1.06]">
-              See Every Clock Cycle, Bus Transfer &{' '}
-              <span
-                className="bg-clip-text text-transparent"
-                style={{
-                  backgroundImage:
-                    'linear-gradient(90deg, var(--ss-accent, #38bdf8), #818cf8)',
-                }}
-              >
-                Register Change
-              </span>{' '}
-              Live.
+        <div className="mx-auto w-full max-w-6xl space-y-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-[#1f2328] sm:text-6xl">
+              8085 Mini Compiler.
+              <br />
+              <span className="text-[#646b75]">Compile. Step. Understand.</span>
             </h1>
-
-            <p
-              className="max-w-2xl text-sm leading-relaxed sm:text-base"
-              style={{ color: 'var(--ss-muted, #94a3b8)' }}
-            >
-              <strong>Silicon Studio</strong> is an interactive 8-bit (Intel 8085) and 16-bit (Intel
-              8086) microprocessor engineering workbench right in your browser. Write assembly,
-              inspect machine-cycle T-states and memory hex pages in real time, step backward
-              through execution history, and debug with a built-in AI Copilot.
+            <p className="mt-4 text-sm leading-relaxed text-[#5c6370] sm:text-base">
+              Write 8085 or 8086 assembly, generate verified machine bytes, and watch every T-state,
+              register, and bus transfer come alive in Silicon Studio.
             </p>
-
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={onLaunchStudio}
-                className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold shadow-lg transition-transform hover:scale-[1.03]"
-                style={{
-                  backgroundColor: 'var(--ss-accent, #38bdf8)',
-                  color: '#06101c',
-                }}
-              >
-                <span>Open Silicon Studio</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => scrollToPage(1)}
-                className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition-colors hover:border-[var(--ss-accent,#38bdf8)]"
-                style={{
-                  borderColor: 'var(--ss-border, #1e293b)',
-                  backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 85%, transparent)',
-                }}
-              >
-                <span>How It Works</span>
-                <ArrowDown className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-4 sm:grid-cols-4">
-              {[
-                { label: 'Architectures', value: '8085 + 8086', onClick: () => scrollToPage(1) },
-                { label: 'Execution', value: 'T-State Exact', onClick: onLaunchStudio },
-                { label: 'AI Copilot', value: 'Offline + Online', onClick: onLaunchStudio },
-                { label: 'Exports', value: '.LST & .HEX', onClick: onLaunchStudio },
-              ].map((stat) => (
-                <button
-                  key={stat.label}
-                  type="button"
-                  onClick={stat.onClick}
-                  className="rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--ss-accent,#38bdf8)]"
-                  style={{
-                    borderColor: 'var(--ss-border, #1e293b)',
-                    backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 85%, transparent)',
-                  }}
-                >
-                  <div className="text-[11px] uppercase tracking-wider opacity-65">
-                    {stat.label}
-                  </div>
-                  <div className="mt-0.5 text-sm font-bold">{stat.value}</div>
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* Right Interactive Live Silicon Preview Card */}
-          <div className="lg:col-span-5">
-            <div
-              className="rounded-2xl border p-5 shadow-2xl backdrop-blur-md"
-              style={{
-                borderColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 28%, var(--ss-border, #1e293b))',
-                backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 92%, transparent)',
-              }}
-            >
+          {/* Fluid Horizontal Sliding Showcase Carousel */}
+          <div className="relative mx-auto max-w-5xl">
+            <div className="overflow-hidden rounded-[28px] shadow-[0_20px_50px_rgba(15,23,42,0.14)]">
               <div
-                className="mb-4 flex items-center justify-between border-b pb-3"
-                style={{ borderColor: 'var(--ss-border, #1e293b)' }}
+                className="flex transition-transform duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                style={{ transform: `translateX(-${slideIdx * 100}%)` }}
               >
-                <div className="flex items-center gap-2 text-xs font-bold">
-                  <Terminal className="h-4 w-4" style={{ color: 'var(--ss-accent, #38bdf8)' }} />
-                  <span>LIVE PREVIEW</span>
-                </div>
-
-                {/* Interactive 8085 / 8086 Switcher */}
-                <div
-                  className="inline-flex rounded-lg border p-0.5 font-mono text-[11px]"
-                  style={{
-                    borderColor: 'var(--ss-border, #1e293b)',
-                    backgroundColor: 'var(--ss-bg, #070b14)',
-                  }}
-                >
-                  {(['8085', '8086'] as const).map((arch) => {
-                    const active = previewArch === arch;
-                    return (
-                      <button
-                        key={arch}
-                        type="button"
-                        onClick={() => setPreviewArch(arch)}
-                        className="rounded-md px-2.5 py-1 font-bold transition-all"
-                        style={{
-                          backgroundColor: active ? 'var(--ss-accent, #38bdf8)' : 'transparent',
-                          color: active ? '#06101c' : 'var(--ss-muted, #94a3b8)',
-                        }}
-                      >
-                        {arch}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <pre
-                className="overflow-x-auto rounded-xl border p-3.5 font-mono text-xs leading-relaxed"
-                style={{
-                  borderColor: 'var(--ss-border, #1e293b)',
-                  backgroundColor: 'var(--ss-bg, #070b14)',
-                }}
-              >
-                {heroData.code}
-              </pre>
-
-              <div className="mt-4 grid grid-cols-3 gap-2 font-mono text-xs">
-                {heroData.regs.map((r) => (
+                {slides.map((slide) => (
                   <div
-                    key={r.k}
-                    className="rounded-lg border px-3 py-2"
-                    style={{
-                      borderColor: 'var(--ss-border, #1e293b)',
-                      backgroundColor: 'var(--ss-bg, #070b14)',
-                    }}
+                    key={slide.id}
+                    className={`w-full shrink-0 p-6 sm:p-10 ${slide.bgClass}`}
+                    style={{ minHeight: '360px' }}
                   >
-                    <div className="text-[10px] opacity-60">{r.k}</div>
-                    <div className="font-bold" style={{ color: 'var(--ss-accent, #38bdf8)' }}>
-                      {r.v}
+                    <div className="grid h-full grid-cols-1 items-center gap-8 lg:grid-cols-12">
+                      <div className="space-y-4 lg:col-span-6">
+                        <span className="inline-block rounded-full bg-white/12 px-3 py-1 font-mono text-[10px] font-bold tracking-widest uppercase">
+                          {slide.tag}
+                        </span>
+                        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                          {slide.title}
+                        </h2>
+                        <p className="text-xs leading-relaxed text-white/75 sm:text-sm">
+                          {slide.subtitle}
+                        </p>
+                      </div>
+
+                      <div className="lg:col-span-6">
+                        {slide.id === 'node-flow' ? (
+                          <div
+                            className="rounded-2xl border border-white/10 bg-[#14171f] p-4"
+                            style={{
+                              backgroundImage:
+                                'radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)',
+                              backgroundSize: '14px 14px',
+                            }}
+                          >
+                            <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+                              <div className="rounded-lg border border-white/15 bg-[#1e222d] px-3 py-2">
+                                <span className="mb-1 block h-1.5 w-5 rounded-full bg-[#e05a33]" />
+                                Editor.asm
+                              </div>
+                              <svg className="h-6 w-12 shrink-0" viewBox="0 0 48 24" fill="none">
+                                <path
+                                  d="M0 12 C 16 12, 32 4, 48 12"
+                                  stroke="#e05a33"
+                                  strokeWidth="2"
+                                />
+                              </svg>
+                              <div className="rounded-lg border border-[#e05a33]/50 bg-[#1e222d] px-3 py-2">
+                                <span className="mb-1 block h-1.5 w-5 rounded-full bg-[#e05a33]" />
+                                2-Pass Compiler
+                              </div>
+                              <svg className="h-6 w-12 shrink-0" viewBox="0 0 48 24" fill="none">
+                                <path
+                                  d="M0 12 C 16 20, 32 12, 48 12"
+                                  stroke="#e05a33"
+                                  strokeWidth="2"
+                                />
+                              </svg>
+                              <div className="rounded-lg border border-white/15 bg-[#1e222d] px-3 py-2">
+                                <span className="mb-1 block h-1.5 w-5 rounded-full bg-emerald-400" />
+                                CPU + RAM
+                              </div>
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                              <span className="rounded-md bg-[#e05a33] px-3 py-1 text-[11px] font-bold text-white">
+                                Live Execution Pipeline
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-[#111520]/80 p-4 font-mono text-xs leading-relaxed text-emerald-300">
+{slide.id === 'arch-8086'
+  ? `        ORG 0100H
+        MOV BX, 1200H
+        MOV CX, 0004H
+        MOV AX, 0000H
+SUM_LP: ADD AX, [BX]
+        INC BX
+        INC BX
+        LOOP SUM_LP
+        HLT`
+  : `        ORG 2000H
+        MVI A, 5AH    ; 3E 5A
+        MVI B, 00H    ; 06 00
+        MVI C, 08H    ; 0E 08
+LOOP:   RAR           ; 1F
+        JNC NEXT      ; D2 0C 20
+        INR B         ; 04
+NEXT:   DCR C         ; 0D
+        JNZ LOOP      ; C2 06 20
+        HLT           ; 76`}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleSlideAction(slide.onAction)}
+                          className="rounded-full bg-[#f7f8fa] px-4 py-1.5 text-xs font-bold text-[#1f2328] shadow transition-transform hover:scale-[1.03]"
+                        >
+                          {slide.ctaLabel}
+                        </button>
+                        <span className="text-xs text-white/75">
+                          <strong>Silicon Studio</strong> · Click to inspect or run live
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          aria-label="Previous slide"
+                          onClick={() => selectSlide(slideIdx - 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Next slide"
+                          onClick={() => selectSlide(slideIdx + 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
 
-              <div className="mt-4 flex items-center justify-between border-t pt-3 text-[11px]" style={{ borderColor: 'var(--ss-border, #1e293b)' }}>
-                <span className="opacity-75">
-                  {heroData.bus} · <strong>{heroData.cycles}</strong>
-                </span>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onOpenArchHistory(previewArch)}
-                    className="font-semibold opacity-80 hover:opacity-100 hover:underline"
-                  >
-                    {previewArch} History
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onLaunchStudio}
-                    className="inline-flex items-center gap-1 font-bold hover:underline"
-                    style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                  >
-                    Run <ArrowRight className="h-3 w-3" />
-                  </button>
-                </div>
+            {/* Progress-Dot Pill + Pause/Play Button */}
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <div className="flex items-center gap-2 rounded-full bg-[#dfe3ea] px-4 py-2.5">
+                {slides.map((s, i) => {
+                  const isActive = i === slideIdx;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      aria-label={`Slide ${i + 1}`}
+                      onClick={() => selectSlide(i)}
+                      className={`relative h-2 overflow-hidden rounded-full transition-all duration-300 ${
+                        isActive ? 'w-10 bg-black/15' : 'w-2 bg-black/20 hover:bg-black/35'
+                      }`}
+                    >
+                      {isActive && (
+                        <span
+                          className="absolute top-0 left-0 bottom-0 rounded-full bg-[#232730]"
+                          style={{ width: `${progress}%` }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+
+              <button
+                type="button"
+                aria-label={isPaused ? 'Play slideshow' : 'Pause slideshow'}
+                onClick={() => setIsPaused((p) => !p)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfe3ea] text-[#232730] transition-colors hover:bg-[#d2d7e0]"
+              >
+                {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ==================== PAGE 2: HOW THE PROJECT WORKS ==================== */}
+      {/* ==================== PAGE 2: SOFT BENTO GRID + 8085 & 8086 HISTORY ==================== */}
       <section
         ref={pageRefs[1]}
         data-page-index={1}
-        className="flex min-h-screen items-center border-t px-4 py-20 sm:px-6"
-        style={{ borderColor: 'var(--ss-border, #1e293b)' }}
+        className="flex min-h-screen items-center px-4 py-20 sm:px-6"
       >
-        <div className="mx-auto w-full max-w-6xl space-y-10">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <div
-                className="text-xs font-bold tracking-widest uppercase"
-                style={{ color: 'var(--ss-accent, #38bdf8)' }}
-              >
-                02 · How It Works
+        <div className="mx-auto w-full max-w-5xl space-y-8">
+          {/* Soft Iridescent Glow Banner */}
+          <div
+            className="relative rounded-3xl p-[1px] shadow-md"
+            style={{ background: 'linear-gradient(90deg, #93c5fd, #fde68a, #fca5a5)' }}
+          >
+            <div className="flex flex-col items-center justify-between gap-4 rounded-[23px] bg-[#f7f8fa] px-6 py-5 text-center sm:flex-row sm:text-left">
+              <div>
+                <div className="text-xs font-semibold text-[#5c6370]">For Students & Evaluators</div>
+                <div className="text-sm font-bold text-[#1f2328] sm:text-base">
+                  Open the full 7-panel 8085 Mini Compiler & Simulator Workbench
+                </div>
               </div>
-              <h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-4xl">
-                From Assembly Source to Live Silicon in Three Steps
-              </h2>
+              <button
+                type="button"
+                onClick={onLaunchStudio}
+                className="shrink-0 rounded-full bg-[#232730] px-5 py-2 text-xs font-semibold text-white transition-transform hover:scale-[1.03]"
+              >
+                Launch Studio
+              </button>
             </div>
+          </div>
+
+          {/* 2-Column Soft Bento Grid */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {/* Soft Mist Card 1 */}
             <button
               type="button"
-              onClick={() => scrollToPage(2)}
-              className="inline-flex items-center gap-1.5 self-start rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:border-[var(--ss-accent,#38bdf8)]"
-              style={{ borderColor: 'var(--ss-border, #1e293b)' }}
+              onClick={onLaunchStudio}
+              className="group relative flex flex-col justify-between rounded-3xl border border-black/[0.06] bg-[#f7f8fa] p-7 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
             >
-              <span>Team & Reviews</span>
-              <ArrowDown className="h-3.5 w-3.5" />
+              <div>
+                <Code2 className="h-7 w-7 text-[#0071e3]" />
+                <h3 className="mt-4 text-xl font-bold">Two-Pass Mini Compiler</h3>
+                <p className="mt-2 text-sm text-[#5c6370]">
+                  Resolves labels, encodes 1/2/3-byte opcodes, highlights errors inline, and exports
+                  .LST and .HEX files.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#0071e3]">Try Assembler</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#232730] text-white transition-transform group-hover:scale-110">
+                  <Plus className="h-4 w-4" />
+                </span>
+              </div>
             </button>
-          </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {[
-              {
-                step: '01',
-                icon: Code2,
-                title: 'Write, Search & Assemble',
-                desc: 'Edit 8085 or 8086 assembly with instant two-pass assembling, Ctrl+F opcode search, Ctrl+G line jump, and clickable diagnostic errors.',
-                points: ['Per-architecture code buffers', 'Syllabus presets built in', 'One-click .LST & .HEX export'],
-              },
-              {
-                step: '02',
-                icon: Zap,
-                title: 'Step Forward, Back & Inspect',
-                desc: 'Execute instruction-by-instruction or at custom clock speeds while watching registers, flags, memory hex pages, and bus cycles update.',
-                points: ['Time-travel Step Back history', 'Interactive CPU block diagram', 'Live Trainer Kit I/O ports'],
-              },
-              {
-                step: '03',
-                icon: Bot,
-                title: 'Debug with Silicon Copilot',
-                desc: 'Use Offline Mode (assembler-verified solver + in-browser CPU AI) or Online Mode (Gemini + Search) to generate code and control the studio.',
-                points: ['0-error assembler verification', 'Reads live registers & flags', 'Hands-free step, run & load'],
-              },
-            ].map((card) => {
-              const Icon = card.icon;
-              return (
-                <button
-                  key={card.step}
-                  type="button"
-                  onClick={onLaunchStudio}
-                  className="group flex flex-col justify-between rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:border-[var(--ss-accent,#38bdf8)]"
-                  style={{
-                    borderColor: 'var(--ss-border, #1e293b)',
-                    backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-                  }}
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span
-                        className="rounded-lg px-2.5 py-1 font-mono text-xs font-bold"
-                        style={{
-                          backgroundColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 14%, transparent)',
-                          color: 'var(--ss-accent, #38bdf8)',
-                        }}
-                      >
-                        STEP {card.step}
-                      </span>
-                      <Icon className="h-5 w-5 opacity-75 transition-transform group-hover:scale-110" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-bold">{card.title}</h3>
-                    <p
-                      className="mt-2 text-sm leading-relaxed"
-                      style={{ color: 'var(--ss-muted, #94a3b8)' }}
-                    >
-                      {card.desc}
-                    </p>
-                  </div>
+            {/* Soft Mist Card 2 */}
+            <button
+              type="button"
+              onClick={onLaunchStudio}
+              className="group relative flex flex-col justify-between rounded-3xl border border-black/[0.06] bg-[#f7f8fa] p-7 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+            >
+              <div>
+                <Zap className="h-7 w-7 text-[#e05a33]" />
+                <h3 className="mt-4 text-xl font-bold">Time-Travel CPU & Bus</h3>
+                <p className="mt-2 text-sm text-[#5c6370]">
+                  Step forward or backward through execution history while inspecting registers, PSW
+                  flags, and 64KB RAM.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#0071e3]">Inspect Telemetry</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#232730] text-white transition-transform group-hover:scale-110">
+                  <Plus className="h-4 w-4" />
+                </span>
+              </div>
+            </button>
 
-                  <ul
-                    className="mt-5 space-y-2 border-t pt-4 text-xs"
-                    style={{ borderColor: 'var(--ss-border, #1e293b)' }}
-                  >
-                    {card.points.map((pt) => (
-                      <li key={pt} className="flex items-center gap-2">
-                        <CheckCircle2
-                          className="h-3.5 w-3.5 shrink-0"
-                          style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                        />
-                        <span>{pt}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Clickable Dual Architecture History Strip */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Soft Matte Graphite Card: Intel 8085 History (Not harsh OLED black) */}
             <button
               type="button"
               onClick={() => onOpenArchHistory('8085')}
-              className="group flex items-start justify-between gap-4 rounded-2xl border p-5 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--ss-accent,#38bdf8)]"
-              style={{
-                borderColor: 'var(--ss-border, #1e293b)',
-                backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-              }}
+              className="group relative flex flex-col justify-between rounded-3xl border border-white/10 bg-[#1c1f26] p-7 text-left text-[#f1f5f9] shadow-sm transition-all hover:-translate-y-1 hover:bg-[#222630] hover:shadow-lg"
             >
-              <div className="flex items-start gap-4">
-                <Layers
-                  className="mt-0.5 h-5 w-5 shrink-0"
-                  style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                />
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-bold">8-Bit Mode · Intel 8085 (1976)</span>
-                    <span className="rounded px-1.5 py-0.5 font-mono text-[10px] opacity-75" style={{ backgroundColor: 'var(--ss-bg, #070b14)' }}>
-                      ~6,500T · 3–6 MHz
-                    </span>
-                  </div>
-                  <p
-                    className="mt-1.5 text-xs leading-relaxed"
-                    style={{ color: 'var(--ss-muted, #94a3b8)' }}
-                  >
-                    Full A, B, C, D, E, H, L, SP, PC registers, 5 status flags, machine cycles
-                    (OF, MR, MW), and 64KB memory matrix.
-                  </p>
-                  <span
-                    className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold"
-                    style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                  >
-                    Explore 8085 History & Assembly Guide{' '}
-                    <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </div>
+              <div>
+                <Layers className="h-7 w-7 text-[#38bdf8]" />
+                <div className="mt-3 text-xs font-medium text-white/60">8-Bit Mode · 1976</div>
+                <h3 className="mt-1 text-2xl font-bold">Intel 8085 History</h3>
+                <p className="mt-2 text-sm text-white/75">
+                  ~6,500 transistors, single +5V supply, multiplexed AD0–AD7 bus, and coding guide.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#38bdf8]">
+                  Read 8085 History &rsaquo;
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f7f8fa] text-[#1f2328] transition-transform group-hover:scale-110">
+                  <Plus className="h-4 w-4" />
+                </span>
               </div>
             </button>
 
+            {/* Soft Matte Graphite Card: Intel 8086 History (Not harsh OLED black) */}
             <button
               type="button"
               onClick={() => onOpenArchHistory('8086')}
-              className="group flex items-start justify-between gap-4 rounded-2xl border p-5 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--ss-accent,#38bdf8)]"
-              style={{
-                borderColor: 'var(--ss-border, #1e293b)',
-                backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-              }}
+              className="group relative flex flex-col justify-between rounded-3xl border border-white/10 bg-[#1c1f26] p-7 text-left text-[#f1f5f9] shadow-sm transition-all hover:-translate-y-1 hover:bg-[#222630] hover:shadow-lg"
             >
-              <div className="flex items-start gap-4">
-                <Cpu
-                  className="mt-0.5 h-5 w-5 shrink-0"
-                  style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                />
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-bold">16-Bit Mode · Intel 8086 (1978)</span>
-                    <span className="rounded px-1.5 py-0.5 font-mono text-[10px] opacity-75" style={{ backgroundColor: 'var(--ss-bg, #070b14)' }}>
-                      29,277T · 5–10 MHz
-                    </span>
-                  </div>
-                  <p
-                    className="mt-1.5 text-xs leading-relaxed"
-                    style={{ color: 'var(--ss-muted, #94a3b8)' }}
-                  >
-                    16-bit AX, BX, CX, DX, SI, DI, BP, SP, IP registers, BIU/EU pipeline view,
-                    segmented 1MB addressing, and x86 roots.
-                  </p>
-                  <span
-                    className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold"
-                    style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                  >
-                    Explore 8086 History & Assembly Guide{' '}
-                    <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </div>
+              <div>
+                <Bot className="h-7 w-7 text-[#e05a33]" />
+                <div className="mt-3 text-xs font-medium text-white/60">16-Bit Mode · 1978</div>
+                <h3 className="mt-1 text-2xl font-bold">Intel 8086 History</h3>
+                <p className="mt-2 text-sm text-white/75">
+                  29,277 transistors, Stephen Morse architecture, BIU/EU pipeline, and x86 roots.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#e05a33]">
+                  Read 8086 History &rsaquo;
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f7f8fa] text-[#1f2328] transition-transform group-hover:scale-110">
+                  <Plus className="h-4 w-4" />
+                </span>
               </div>
             </button>
           </div>
         </div>
       </section>
 
-      {/* ==================== PAGE 3: TESTIMONIALS & TEAM ==================== */}
+      {/* ==================== PAGE 3: TESTIMONIALS & 4-MEMBER TEAM ==================== */}
       <section
         ref={pageRefs[2]}
         data-page-index={2}
-        className="flex min-h-screen items-center border-t px-4 py-20 sm:px-6"
-        style={{ borderColor: 'var(--ss-border, #1e293b)' }}
+        className="flex min-h-screen items-center bg-[#f7f8fa] px-4 py-20 sm:px-6"
       >
-        <div className="mx-auto w-full max-w-6xl space-y-10">
-          {/* Testimonials */}
-          <div>
-            <div
-              className="text-xs font-bold tracking-widest uppercase"
-              style={{ color: 'var(--ss-accent, #38bdf8)' }}
-            >
-              03 · Testimonials & Builders
+        <div className="mx-auto w-full max-w-5xl space-y-10">
+          <div className="text-center">
+            <div className="text-xs font-bold tracking-widest text-[#0071e3] uppercase">
+              Lab Reviews & Builders
             </div>
-            <h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-4xl">
-              Reviewed in the Lab, Built by Four Engineers
+            <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+              Built by Four Engineers.
             </h2>
-
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              {TESTIMONIALS.map((t) => (
-                <button
-                  key={t.role}
-                  type="button"
-                  onClick={onLaunchStudio}
-                  className="flex flex-col justify-between rounded-2xl border p-5 text-left transition-all hover:border-[var(--ss-accent,#38bdf8)]"
-                  style={{
-                    borderColor: 'var(--ss-border, #1e293b)',
-                    backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-                  }}
-                >
-                  <div>
-                    <div className="mb-3 flex items-center justify-between">
-                      <Quote
-                        className="h-5 w-5 opacity-75"
-                        style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                      />
-                      <div className="flex gap-0.5" style={{ color: '#fbbf24' }}>
-                        {[0, 1, 2, 3, 4].map((s) => (
-                          <Star key={s} className="h-3 w-3 fill-current" />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs leading-relaxed sm:text-sm">“{t.quote}”</p>
-                  </div>
-                  <div
-                    className="mt-4 border-t pt-3"
-                    style={{ borderColor: 'var(--ss-border, #1e293b)' }}
-                  >
-                    <div className="text-xs font-bold">{t.role}</div>
-                    <div className="text-[11px] opacity-65">{t.dept}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* Clickable Team Members */}
-          <div>
-            <div className="mb-4 flex items-center gap-2 text-xs font-bold tracking-wider uppercase opacity-80">
-              <Users className="h-4 w-4" style={{ color: 'var(--ss-accent, #38bdf8)' }} />
-              <span>Project Team · Click any member to inspect their modules & contributions</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {TEAM_MEMBERS.map((member, idx) => (
-                <button
-                  key={member.id}
-                  type="button"
-                  onClick={() => onOpenMember(member.id)}
-                  className="group flex flex-col justify-between rounded-2xl border p-4 text-left transition-all hover:-translate-y-1 hover:border-[var(--ss-accent,#38bdf8)]"
-                  style={{
-                    borderColor:
-                      idx === 0
-                        ? 'color-mix(in srgb, var(--ss-accent, #38bdf8) 40%, var(--ss-border, #1e293b))'
-                        : 'var(--ss-border, #1e293b)',
-                    backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-                  }}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border font-mono text-sm font-bold"
-                        style={{
-                          borderColor: 'var(--ss-accent, #38bdf8)',
-                          backgroundColor:
-                            'color-mix(in srgb, var(--ss-accent, #38bdf8) 14%, transparent)',
-                          color: 'var(--ss-accent, #38bdf8)',
-                        }}
-                      >
-                        {member.initials}
-                      </div>
-                      {idx === 0 && (
-                        <span
-                          className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
-                          style={{
-                            backgroundColor:
-                              'color-mix(in srgb, var(--ss-accent, #38bdf8) 16%, transparent)',
-                            color: 'var(--ss-accent, #38bdf8)',
-                          }}
-                        >
-                          Lead Architect
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 text-sm font-bold">{member.name}</div>
-                    <div className="mt-0.5 line-clamp-2 text-[11px] leading-snug opacity-70">
-                      {member.role}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {TESTIMONIALS.map((t) => (
+              <div
+                key={t.role}
+                className="flex flex-col justify-between rounded-3xl border border-black/[0.06] bg-[#eef1f5] p-6"
+              >
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <Quote className="h-4 w-4 text-[#0071e3]" />
+                    <div className="flex gap-0.5 text-[#f59e0b]">
+                      {[0, 1, 2, 3, 4].map((s) => (
+                        <Star key={s} className="h-3 w-3 fill-current" />
+                      ))}
                     </div>
                   </div>
-
-                  <div
-                    className="mt-3 inline-flex items-center gap-1 border-t pt-2.5 text-[11px] font-bold"
-                    style={{
-                      borderColor: 'var(--ss-border, #1e293b)',
-                      color: 'var(--ss-accent, #38bdf8)',
-                    }}
-                  >
-                    <span>View Contributions</span>
-                    <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </button>
-              ))}
-            </div>
+                  <p className="text-xs leading-relaxed text-[#1f2328] sm:text-sm">“{t.quote}”</p>
+                </div>
+                <div className="mt-4 border-t border-black/10 pt-3">
+                  <div className="text-xs font-bold">{t.role}</div>
+                  <div className="text-[11px] text-[#5c6370]">{t.dept}</div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Final Launch Banner */}
-          <div
-            className="flex flex-col items-start justify-between gap-4 rounded-2xl border p-6 sm:flex-row sm:items-center"
-            style={{
-              borderColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 45%, transparent)',
-              background:
-                'linear-gradient(135deg, color-mix(in srgb, var(--ss-accent, #38bdf8) 14%, transparent), rgba(99, 102, 241, 0.10))',
-            }}
-          >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {TEAM_MEMBERS.map((member, idx) => (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => onOpenMember(member.id)}
+                className="group flex flex-col justify-between rounded-3xl border border-black/[0.08] bg-[#eef1f5] p-5 text-left transition-all hover:-translate-y-1 hover:bg-white hover:shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#232730] font-mono text-sm font-bold text-white">
+                      {member.initials}
+                    </div>
+                    {idx === 0 && (
+                      <span className="rounded-full bg-[#0071e3]/10 px-2.5 py-0.5 text-[10px] font-bold text-[#0071e3]">
+                        Lead Architect
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3 text-sm font-bold">{member.name}</div>
+                  <div className="mt-1 line-clamp-2 text-[11px] text-[#5c6370]">{member.role}</div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-black/10 pt-3">
+                  <span className="text-xs font-semibold text-[#0071e3]">Contributions</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#232730] text-white transition-transform group-hover:scale-110">
+                    <Plus className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Soft Matte Graphite Launch Banner */}
+          <div className="flex flex-col items-start justify-between gap-4 rounded-3xl bg-[#1c1f26] p-7 text-[#f1f5f9] sm:flex-row sm:items-center">
             <div>
-              <h3 className="text-lg font-extrabold">Ready to run your 8085 or 8086 code?</h3>
-              <p className="text-xs opacity-80">
-                Launch the full 7-panel simulator, theme customizer, and offline/online AI Copilot.
+              <h3 className="text-xl font-bold">Make it yours. Start compiling.</h3>
+              <p className="mt-1 text-xs text-white/70">
+                Launch the 7-panel 8085 Mini Compiler, 8086 mode, and Offline AI Copilot.
               </p>
             </div>
             <button
               type="button"
               onClick={onLaunchStudio}
-              className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold shadow-lg transition-transform hover:scale-[1.03]"
-              style={{
-                backgroundColor: 'var(--ss-accent, #38bdf8)',
-                color: '#06101c',
-              }}
+              className="inline-flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-3 text-sm font-semibold text-white transition-transform hover:scale-[1.03]"
             >
               <span>Launch Silicon Studio</span>
               <ArrowRight className="h-4 w-4" />

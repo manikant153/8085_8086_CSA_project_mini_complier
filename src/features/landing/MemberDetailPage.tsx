@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, FileCode2, Layers, Users } from 'lucide-react';
 import { TEAM_MEMBERS } from '../../data/landingData';
+import { getSavedLandingPalette, LANDING_PALETTES } from './LandingTheme';
 
 interface MemberDetailPageProps {
   memberId: string;
@@ -16,15 +17,15 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
   onLaunchStudio,
 }) => {
   const member = TEAM_MEMBERS.find((m) => m.id === memberId) ?? TEAM_MEMBERS[0];
+  const p = LANDING_PALETTES[getSavedLandingPalette()];
 
   return (
     <div
       className="min-h-screen w-full overflow-x-hidden"
       style={{
-        backgroundColor: 'var(--ss-bg, #070b14)',
-        color: 'var(--ss-text, #e2e8f0)',
-        backgroundImage:
-          'linear-gradient(to right, rgba(56, 189, 248, 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(56, 189, 248, 0.04) 1px, transparent 1px)',
+        backgroundColor: p.bg,
+        color: p.text,
+        backgroundImage: `linear-gradient(to right, ${p.gridLine} 1px, transparent 1px), linear-gradient(to bottom, ${p.gridLine} 1px, transparent 1px)`,
         backgroundSize: '40px 40px',
       }}
     >
@@ -32,19 +33,16 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
       <header
         className="sticky top-0 z-40 border-b backdrop-blur-xl"
         style={{
-          backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0d1424) 84%, transparent)',
-          borderColor: 'var(--ss-border, #1e293b)',
+          backgroundColor: `color-mix(in srgb, ${p.surface} 84%, transparent)`,
+          borderColor: p.border,
         }}
       >
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <button
             type="button"
             onClick={onBackToOverview}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:border-[var(--ss-accent,#38bdf8)]"
-            style={{
-              borderColor: 'var(--ss-border, #1e293b)',
-              backgroundColor: 'var(--ss-bg, #070b14)',
-            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold"
+            style={{ borderColor: p.border, backgroundColor: p.surfaceAlt }}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Back to Overview</span>
@@ -54,10 +52,7 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             type="button"
             onClick={onLaunchStudio}
             className="inline-flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-bold shadow-md transition-transform hover:scale-[1.03]"
-            style={{
-              backgroundColor: 'var(--ss-accent, #38bdf8)',
-              color: '#06101c',
-            }}
+            style={{ backgroundColor: p.accent, color: p.accentText }}
           >
             <span>Launch Studio</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -70,17 +65,17 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
         <section
           className="rounded-2xl border p-6 shadow-2xl sm:p-8"
           style={{
-            borderColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 28%, var(--ss-border, #1e293b))',
-            backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 92%, transparent)',
+            borderColor: `color-mix(in srgb, ${p.accent} 32%, ${p.border})`,
+            backgroundColor: p.surface,
           }}
         >
           <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
             <div
               className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border font-mono text-xl font-extrabold"
               style={{
-                borderColor: 'var(--ss-accent, #38bdf8)',
-                backgroundColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 14%, transparent)',
-                color: 'var(--ss-accent, #38bdf8)',
+                borderColor: p.accent,
+                backgroundColor: `color-mix(in srgb, ${p.accent} 14%, transparent)`,
+                color: p.accent,
               }}
             >
               {member.initials}
@@ -89,7 +84,7 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             <div className="space-y-1.5">
               <div
                 className="text-xs font-bold tracking-wider uppercase"
-                style={{ color: 'var(--ss-accent, #38bdf8)' }}
+                style={{ color: p.accent }}
               >
                 Project Builder Profile
               </div>
@@ -98,10 +93,7 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             </div>
           </div>
 
-          <p
-            className="mt-5 text-sm leading-relaxed"
-            style={{ color: 'var(--ss-muted, #94a3b8)' }}
-          >
+          <p className="mt-5 text-sm leading-relaxed" style={{ color: p.muted }}>
             {member.summary}
           </p>
 
@@ -111,9 +103,9 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 key={tag}
                 className="rounded-full border px-3 py-1 text-xs font-medium"
                 style={{
-                  borderColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 35%, transparent)',
-                  backgroundColor: 'color-mix(in srgb, var(--ss-accent, #38bdf8) 10%, transparent)',
-                  color: 'var(--ss-accent, #38bdf8)',
+                  borderColor: `color-mix(in srgb, ${p.accent} 35%, transparent)`,
+                  backgroundColor: `color-mix(in srgb, ${p.accent} 10%, transparent)`,
+                  color: p.accent,
                 }}
               >
                 {tag}
@@ -126,23 +118,17 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
         <section className="grid grid-cols-1 gap-6 md:grid-cols-12">
           <div
             className="rounded-2xl border p-6 md:col-span-7"
-            style={{
-              borderColor: 'var(--ss-border, #1e293b)',
-              backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-            }}
+            style={{ borderColor: p.border, backgroundColor: p.surface }}
           >
             <div className="flex items-center gap-2 text-sm font-bold">
-              <Layers className="h-4 w-4" style={{ color: 'var(--ss-accent, #38bdf8)' }} />
+              <Layers className="h-4 w-4" style={{ color: p.accent }} />
               <span>Key Project Contributions</span>
             </div>
 
             <ul className="mt-4 space-y-3 text-xs leading-relaxed sm:text-sm">
               {member.contributions.map((item) => (
                 <li key={item} className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    className="mt-0.5 h-4 w-4 shrink-0"
-                    style={{ color: 'var(--ss-accent, #38bdf8)' }}
-                  />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: p.accent }} />
                   <span>{item}</span>
                 </li>
               ))}
@@ -151,13 +137,10 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
 
           <div
             className="rounded-2xl border p-6 md:col-span-5"
-            style={{
-              borderColor: 'var(--ss-border, #1e293b)',
-              backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-            }}
+            style={{ borderColor: p.border, backgroundColor: p.surface }}
           >
             <div className="flex items-center gap-2 text-sm font-bold">
-              <FileCode2 className="h-4 w-4" style={{ color: 'var(--ss-accent, #38bdf8)' }} />
+              <FileCode2 className="h-4 w-4" style={{ color: p.accentSecondary }} />
               <span>Owned Modules</span>
             </div>
 
@@ -166,10 +149,7 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 <div
                   key={mod}
                   className="rounded-xl border px-3 py-2 font-mono text-xs"
-                  style={{
-                    borderColor: 'var(--ss-border, #1e293b)',
-                    backgroundColor: 'var(--ss-bg, #070b14)',
-                  }}
+                  style={{ borderColor: p.border, backgroundColor: p.surfaceAlt }}
                 >
                   {mod}
                 </div>
@@ -181,13 +161,10 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
         {/* Switch Between Team Members */}
         <section
           className="rounded-2xl border p-5"
-          style={{
-            borderColor: 'var(--ss-border, #1e293b)',
-            backgroundColor: 'color-mix(in srgb, var(--ss-surface, #0f172a) 90%, transparent)',
-          }}
+          style={{ borderColor: p.border, backgroundColor: p.surface }}
         >
           <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider opacity-75">
-            <Users className="h-3.5 w-3.5" style={{ color: 'var(--ss-accent, #38bdf8)' }} />
+            <Users className="h-3.5 w-3.5" style={{ color: p.accent }} />
             <span>Explore Other Team Members</span>
           </div>
 
@@ -201,13 +178,11 @@ export const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                   onClick={() => onSelectMember(m.id)}
                   className="rounded-xl border px-4 py-2 text-xs font-semibold transition-all"
                   style={{
-                    borderColor: active
-                      ? 'var(--ss-accent, #38bdf8)'
-                      : 'var(--ss-border, #1e293b)',
+                    borderColor: active ? p.accent : p.border,
                     backgroundColor: active
-                      ? 'color-mix(in srgb, var(--ss-accent, #38bdf8) 15%, transparent)'
-                      : 'var(--ss-bg, #070b14)',
-                    color: active ? 'var(--ss-accent, #38bdf8)' : 'var(--ss-text, #e2e8f0)',
+                      ? `color-mix(in srgb, ${p.accent} 15%, transparent)`
+                      : p.surfaceAlt,
+                    color: active ? p.accent : p.text,
                   }}
                 >
                   {m.name}
