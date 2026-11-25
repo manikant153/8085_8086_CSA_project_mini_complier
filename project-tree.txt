@@ -1,0 +1,74 @@
+﻿├── public
+│   ├── favicon.svg
+│   └── icons.svg
+├── src
+│   ├── assets
+│   │   ├── react.svg
+│   │   └── vite.svg
+│   ├── core
+│   │   ├── analyzer
+│   │   │   └── timingAnalyzer.ts
+│   │   ├── assembler
+│   │   │   ├── assembler.ts
+│   │   │   ├── lexer.ts
+│   │   │   └── parser.ts
+│   │   ├── emulator
+│   │   │   ├── alu.ts
+│   │   │   ├── cpu.ts
+│   │   │   ├── cpu8086.ts
+│   │   │   └── history.ts
+│   │   └── isa
+│   │       ├── arch8086.ts
+│   │       ├── busPaths.ts
+│   │       └── opcodes.ts
+│   ├── data
+│   │   ├── landingData.ts
+│   │   ├── syllabusPresets.ts
+│   │   └── themes.ts
+│   ├── features
+│   │   ├── architecture
+│   │   │   ├── CpuBlockDiagram.tsx
+│   │   │   └── CycleTimingDiagram.tsx
+│   │   ├── assistant
+│   │   │   └── FloatingAiAssistant.tsx
+│   │   ├── command-palette
+│   │   │   └── CommandPalette.tsx
+│   │   ├── editor
+│   │   │   ├── CodeEditor.tsx
+│   │   │   ├── MachineCodeTable.tsx
+│   │   │   └── TopTelemetryBar.tsx
+│   │   ├── landing
+│   │   │   ├── ArchitectureHistoryPage.tsx
+│   │   │   ├── LandingPage.tsx
+│   │   │   ├── MemberDetailPage.tsx
+│   │   │   └── StudioShell.tsx
+│   │   ├── peripherals
+│   │   │   └── TrainerKitPanel.tsx
+│   │   ├── telemetry
+│   │   │   ├── FlagMatrix.tsx
+│   │   │   ├── MemoryHexGrid.tsx
+│   │   │   └── RegisterMatrix.tsx
+│   │   └── theme
+│   │       └── ThemeSelectorModal.tsx
+│   ├── services
+│   │   ├── aiAssistantService.ts
+│   │   └── studioAgentBridge.ts
+│   ├── store
+│   │   └── useSimulatorStore.ts
+│   ├── tests
+│   │   └── cpu.test.ts
+│   ├── App.css
+│   ├── App.tsx
+│   ├── index.css
+│   └── main.tsx
+├── .gitignore
+├── .oxlintrc.json
+├── index.html
+├── package.json
+├── package-lock.json
+├── README.md
+├── server.mjs
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
