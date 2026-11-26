@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Home } from 'lucide-react';
 import App, { type StudioPanelId } from '../../App';
 import { type ArchitectureId } from '../../data/landingData';
 import { ArchitectureHistoryPage } from './ArchitectureHistoryPage';
@@ -131,23 +130,12 @@ export const StudioShell: React.FC = () => {
   }
 
   return (
-    <div className="studio-apple-shell relative min-h-screen bg-[#f5f5f7] text-[#1d1d1f]">
+    <div className="studio-apple-shell relative min-h-screen bg-[#eef1f5] text-[#1f2328]">
       <App
         activePanel={view.panel}
         onSelectPanel={(panel) => navigateTo({ kind: 'studio', panel })}
         onGoHome={goLanding}
       />
-
-      {/* Bottom-Left Overview Pill */}
-      <button
-        type="button"
-        onClick={goLanding}
-        title="Back to Landing Overview"
-        className="fixed bottom-4 left-4 z-40 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-[#1d1d1f] shadow-md backdrop-blur-md transition-transform hover:scale-105"
-      >
-        <Home className="h-3.5 w-3.5 text-[#0071e3]" />
-        <span>Overview</span>
-      </button>
     </div>
   );
 };

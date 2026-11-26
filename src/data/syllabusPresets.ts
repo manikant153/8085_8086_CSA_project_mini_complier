@@ -42,15 +42,15 @@ export const SYLLABUS_PRESETS: SyllabusPreset[] = [
   {
     id: 'basic-flags-8085',
     arch: '8085',
-    title: 'Watch Zero & Carry Flags (INR, DCR)',
+    title: 'Watch Zero & Carry Flags (DCR, ADI)',
     category: 'Beginner 03',
-    description: 'See the Zero (Z) and Parity (P) flags light up when a register hits 00H.',
+    description: 'See Zero (Z) and Carry (CY) flip-flops light up on 00H and 8-bit overflow.',
     code: `; Beginner 03: Watch PSW Flags Flip Live
         ORG 2000H
         MVI A, 01H      ; Start with A = 01H
-        DCR A           ; Decrement A -> 00H (Zero flag Z becomes 1!)
-        MVI B, FFH      ; Start with B = FFH (255)
-        INR B           ; Increment B -> wraps to 00H (Z=1)
+        DCR A           ; A = 00H (Zero flag Z = 1, Parity P = 1)
+        MVI A, FFH      ; Start with A = FFH (255)
+        ADI 01H         ; A = 00H with overflow (Z = 1 AND Carry CY = 1)
         HLT`,
   },
   {
